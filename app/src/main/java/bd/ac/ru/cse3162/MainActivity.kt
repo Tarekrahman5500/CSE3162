@@ -27,122 +27,102 @@ class MainActivity : AppCompatActivity() {
     lateinit var binding: ActivityMainBinding
     var late: Double = 0.0
     var long: Double = 0.0
-    var api: String = API_KEY
+    val api: String = "b3e4b6983f5f6efe30cf9270622a8529"
     private var resultReceiver: ResultReceiver? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        resultReceiver = AddressResultReceiver(Handler())
+
         binding.locationFind.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(
-                    applicationContext, Manifest.permission.ACCESS_FINE_LOCATION
-                )
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                    REQUEST_CODE_LOCATION_PERMISSION
-                )
-            } else {
-                currentLocation
+                //  binding!!.progressBar.visibility = View.VISIBLE
+
+                weatherTask().execute()
+
+
             }
         }
 
-    }
+        inner class weatherTask() : AsyncTask<String, Void, String>() {
 
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_LOCATION_PERMISSION && grantResults.isNotEmpty()) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                currentLocation
-            } else {
-                Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show()
+            override fun onPreExecute() {
+                super.onPreExecute()
             }
-        }
-    }
 
-    // TODO: Consider calling
-    //    ActivityCompat#requestPermissions
-    // here to request the missing permissions, and then overriding
-    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-    //                                          int[] grantResults)
-    // to handle the case where the user grants the permission. See the documentation
-    // for ActivityCompat#requestPermissions for more details.
+            override fun doInBackground(vararg params: String?): String? {
+                val  cITY = binding.spinner.selectedItem.toString()
+                // println(binding!!.spinner.selectedItem.toString())
+                val response: String? = try {
+                    URL("https://api.openweathermap.org/data/2.5/weather?q=$cITY&units=metric&appid=$api").readText(
+                        Charsets.UTF_8
+                    )
 
-    private val currentLocation: Unit
-        get() {
-            val locationRequest = LocationRequest()
-            locationRequest.interval = 10000
-            locationRequest.fastestInterval = 3000
-            locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-                return
+                } catch (e: Exception) {
+                    null
+                }
+                println("ok")
+                return response
             }
-            LocationServices.getFusedLocationProviderClient(this)
-                .requestLocationUpdates(locationRequest, object : LocationCallback() {
-                    override fun onLocationResult(locationResult: LocationResult) {
-                        super.onLocationResult(locationResult)
-                        LocationServices.getFusedLocationProviderClient(this@MainActivity)
-                            .removeLocationUpdates(this)
-                        if (locationResult.locations.size > 0) {
-                            val lastLocationIndex = locationResult.locations.size - 1
-                            val latitude = locationResult.locations[lastLocationIndex].latitude
-                            val longitude = locationResult.locations[lastLocationIndex].longitude
-                            val location = Location("providerNA")
-                            location.latitude = latitude
-                            location.longitude = longitude
-                            late = latitude
-                            long = longitude
-                            binding.latVAL.text = late.toString()
-                            binding.lonVAL.text = long.toString()
-                            println("$late $long")
-                            //  weatherTask().execute()
-                              fetchAddressFromLatLong(location)
-                        }
+
+
+
+            @SuppressLint("SetTextI18n")
+            override fun onPostExecute(result: String?) {
+                super.onPostExecute(result)
+                try {
+                    /* Extracting JSON returns from the API */
+                    val jsonObj = JSONObject(result)
+                    val coord = jsonObj.getJSONObject("coord")
+                    val main = jsonObj.getJSONObject("main")
+                    val sys = jsonObj.getJSONObject("sys")
+                    val wind = jsonObj.getJSONObject("wind")
+                    println(wind)
+                    val weather = jsonObj.getJSONArray("weather").getJSONObject(0)
+
+                    val updatedAt: Long = jsonObj.getLong("dt")
+                    val updatedAtText = "Updated at: " + SimpleDateFormat(
+                        "dd/MMMM/yyyy hh:mm a",
+                        Locale.ENGLISH
+                    ).format(Date(updatedAt * 1000))
+                    val temp = main.getString("temp")
+                    val pressure = main.getString("pressure")
+                    val humidity = main.getString("humidity")
+
+                    val sunrise: Long = sys.getLong("sunrise")
+                    val sunset: Long = sys.getLong("sunset")
+                    val windSpeed = wind.getString("speed")
+                    val weatherDescription = weather.getString("description")
+
+                    val address = jsonObj.getString("name") + ", " + sys.getString("country")
+                    val lon = coord.getString("lon")
+                    val lat = coord.getString("lat")
+                    println("$lon $lat")
+                    /* Populating extracted data into our views */
+                    binding.apply {
+                        binding.CityView.text = address
+                        binding.datetime.text = updatedAtText
+                        binding.description.text = weatherDescription.capitalize()
+                        binding.Celcius.text = temp
+                        binding.tvSunriseTime.text =
+                            SimpleDateFormat("hh:mm a", Locale.ENGLISH).format(Date(sunrise * 1000))
+                        binding.tvSunsetTime.text =
+                            SimpleDateFormat("hh:mm a", Locale.ENGLISH).format(Date(sunset * 1000))
+                        binding.myVisibility.text = "$windSpeed km"
+                        binding.pressure.text = "$pressure mBar"
+                        binding.humidity.text = "$humidity %"
+                        binding.latVAL.text = lat
+                        binding.lonVAL.text = lon
+
+                        binding.FarenhiteTemp.text =  (((temp.toDouble()*9)/5)+32).toString()
+
                     }
-                }, Looper.getMainLooper())
-        }
 
-    private fun fetchAddressFromLatLong(location: Location) {
-        val intent = Intent(this, FetchAddressInternetService::class.java)
-        intent.putExtra(Constants.RECEIVER, resultReceiver)
-        intent.putExtra(Constants.LOCATION_DATA_EXTRA, location)
-        startService(intent)
-    }
-
-    private inner class AddressResultReceiver(handler: Handler?) : ResultReceiver(handler) {
-        override fun onReceiveResult(resultCode: Int, resultData: Bundle) {
-            super.onReceiveResult(resultCode, resultData)
-            if (resultCode == Constants.SUCCESS_RESULT) {
-                 binding.CityView.text = resultData.getString(Constants.RESULT_DATA_KEY)
-                println(resultData.getString(Constants.RESULT_DATA_KEY))
-                Toast.makeText(this@MainActivity, resultData.getString(Constants.RESULT_DATA_KEY), Toast.LENGTH_SHORT)
-            } else {
-                Toast.makeText(this@MainActivity, resultData.getString(Constants.RESULT_DATA_KEY), Toast.LENGTH_SHORT)
-                    .show()
+                } catch (e: Exception) {
+                    //Toast.makeText(con, "Permission denied", Toast.LENGTH_SHORT).show()
+                }
             }
 
-        }
-    }
 
-    companion object {
-        private const val REQUEST_CODE_LOCATION_PERMISSION = 1
+        }
+
     }
-}
