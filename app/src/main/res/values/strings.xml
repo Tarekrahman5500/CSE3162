@@ -17,4 +17,6 @@
     <string name="location">Location</string>
     <string name="todo">TODO</string>
     <string name="thirtythree">33</string>
+    <string name="weather_condition">broken cloud</string>
+    <string name="_4_km">4 km</string>
 </resources>
